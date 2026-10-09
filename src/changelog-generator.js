@@ -1,22 +1,32 @@
+const { generateChangelogBody } = require('./llm-client');
+
 /**
- * Generates a changelog entry
+ * Generates a changelog entry. Uses an LLM to summarize commits when an LLM key
+ * is set (see llm-client); otherwise falls back to a branch-name line.
  * @param {string} version - New version
  * @param {string} branchName - Branch name
  * @param {string} jiraTicket - Jira ticket number (optional)
- * @returns {string} - Markdown changelog entry
+ * @param {string} commits - Commit messages since the last tag (optional)
+ * @returns {Promise<string>} - Markdown changelog entry
  */
-function generateChangelogEntry(version, branchName, jiraTicket) {
+async function generateChangelogEntry(version, branchName, jiraTicket, commits) {
   const date = new Date().toISOString().split('T')[0];
-  
-  let entry = `## [${version}] - ${date}\n\n`;
-  
-  if (jiraTicket) {
-    entry += `- ${jiraTicket}: Changes from ${branchName}\n`;
-  } else {
-    entry += `- Changes from ${branchName}\n`;
+  const header = `## [${version}] - ${date}\n\n`;
+
+  let body;
+  try {
+    body = await generateChangelogBody({ version, branchName, jiraTicket, commits });
+  } catch (err) {
+    console.warn(`⚠️  LLM changelog failed (${err.message}), using fallback`);
   }
-  
-  return entry;
+
+  if (!body) {
+    body = jiraTicket
+      ? `- ${jiraTicket}: Changes from ${branchName}`
+      : `- Changes from ${branchName}`;
+  }
+
+  return `${header}${body}\n`;
 }
 
 /**

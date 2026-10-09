@@ -52,8 +52,16 @@ program
       updatePackageJson(newVersion);
       console.log(`✅ Updated package.json to ${newVersion}`);
 
-      // 6. Generate and update changelog
-      const changelogEntry = generateChangelogEntry(newVersion, branchName, jiraTicket);
+      // 6. Generate and update changelog (commits since last tag, for LLM summary)
+      let commits = '';
+      try {
+        const lastTag = execSync('git describe --tags --abbrev=0').toString().trim();
+        commits = execSync(`git log ${lastTag}..HEAD --pretty=format:%s`).toString().trim();
+      } catch {
+        // No tags yet — summarize all commits
+        commits = execSync('git log --pretty=format:%s').toString().trim();
+      }
+      const changelogEntry = await generateChangelogEntry(newVersion, branchName, jiraTicket, commits);
       prependToChangelog(changelogEntry);
       console.log('✅ Updated CHANGELOG.md');
 

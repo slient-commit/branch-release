@@ -54,10 +54,16 @@ All optional. The matching step is skipped when its vars are unset.
 | `JIRA_URL`        | Jira base URL (e.g. `https://you.atlassian.net`)    |
 | `JIRA_EMAIL`      | Jira account email                                  |
 | `JIRA_API_TOKEN`  | Jira API token                                      |
+| `ANTHROPIC_API_KEY` | Summarize commits into the changelog via Claude   |
+| `OPENAI_API_KEY`  | Same, via OpenAI (used only if `ANTHROPIC_API_KEY` unset) |
 
 Gitea release needs `GITEA_TOKEN` + `REPO_OWNER` + `REPO_NAME`.
 Jira labeling needs `JIRA_URL` + `JIRA_EMAIL` + `JIRA_API_TOKEN`.
-Missing either set just skips that step.
+With no LLM key, the changelog falls back to a one-line entry from the branch name.
+Missing any set just skips that step.
+
+Optional model override: `ANTHROPIC_MODEL` (default `claude-opus-4-8`),
+`OPENAI_MODEL` (default `gpt-4o-mini`).
 
 ## Gitea Actions
 
