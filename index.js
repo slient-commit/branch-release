@@ -55,7 +55,8 @@ program
       // 6. Generate and update changelog (commits since last tag, for LLM summary)
       let commits = '';
       try {
-        const lastTag = execSync('git describe --tags --abbrev=0').toString().trim();
+        // stderr ignored: git prints a fatal when no tags exist yet (handled below)
+        const lastTag = execSync('git describe --tags --abbrev=0', { stdio: ['pipe', 'pipe', 'ignore'] }).toString().trim();
         commits = execSync(`git log ${lastTag}..HEAD --pretty=format:%s`).toString().trim();
       } catch {
         // No tags yet — summarize all commits
@@ -65,15 +66,19 @@ program
       prependToChangelog(changelogEntry);
       console.log('✅ Updated CHANGELOG.md');
 
-      // 7. Commit changes
+      // 7. Commit changes. CI runners often have no git identity, so set one
+      // for the commit + annotated tag (override via GIT_AUTHOR_NAME/EMAIL).
+      const gitName = process.env.GIT_AUTHOR_NAME || 'branch-release';
+      const gitEmail = process.env.GIT_AUTHOR_EMAIL || 'branch-release@users.noreply.github.com';
+      const gitId = `-c user.name="${gitName}" -c user.email="${gitEmail}"`;
       execSync('git add package.json CHANGELOG.md');
-      execSync(`git commit -m "chore(release): v${newVersion} [skip ci]"`);
+      execSync(`git ${gitId} commit -m "chore(release): v${newVersion} [skip ci]"`);
       console.log('✅ Committed version bump');
 
       // 8. Create git tag (annotated, so --follow-tags pushes it)
       const tagName = `v${newVersion}`;
       if (options.tag !== false) {
-        execSync(`git tag -a ${tagName} -m "Release ${tagName}"`);
+        execSync(`git ${gitId} tag -a ${tagName} -m "Release ${tagName}"`);
         console.log(`✅ Created tag: ${tagName}`);
       }
 
