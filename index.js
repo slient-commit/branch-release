@@ -62,35 +62,36 @@ program
       execSync(`git commit -m "chore(release): v${newVersion} [skip ci]"`);
       console.log('✅ Committed version bump');
 
-      // 8. Create git tag
+      // 8. Create git tag (annotated, so --follow-tags pushes it)
+      const tagName = `v${newVersion}`;
       if (options.tag !== false) {
-        const tagName = `v${newVersion}`;
-        execSync(`git tag ${tagName}`);
+        execSync(`git tag -a ${tagName} -m "Release ${tagName}"`);
         console.log(`✅ Created tag: ${tagName}`);
+      }
 
-        // 9. Create Gitea release (if credentials provided)
-        if (options.release !== false && process.env.GITEA_TOKEN) {
-          const giteaUrl = process.env.GITEA_URL || 'https://gitea.example.com';
-          const owner = process.env.REPO_OWNER;
-          const repo = process.env.REPO_NAME;
+      // 9. Push branch + tags. origin is already authenticated — CI clones with
+      // a token in the URL, locally the dev's own credentials apply.
+      const pushArgs = options.tag !== false ? ' --follow-tags' : '';
+      execSync(`git push origin HEAD${pushArgs}`, { stdio: 'inherit' });
+      console.log('✅ Pushed to origin');
 
-          if (owner && repo) {
-            const gitea = new GiteaClient(giteaUrl, process.env.GITEA_TOKEN);
-            
-            // Push tag first
-            execSync(`git push origin ${tagName}`);
-            
-            // Create release
-            await gitea.createRelease(
-              owner,
-              repo,
-              tagName,
-              `Release ${tagName}`,
-              changelogEntry
-            );
-          } else {
-            console.warn('⚠️  Skipping Gitea release: REPO_OWNER and REPO_NAME not set');
-          }
+      // 10. Create Gitea release (if credentials provided; needs the tag pushed above)
+      if (options.tag !== false && options.release !== false && process.env.GITEA_TOKEN) {
+        const giteaUrl = process.env.GITEA_URL || 'https://gitea.example.com';
+        const owner = process.env.REPO_OWNER;
+        const repo = process.env.REPO_NAME;
+
+        if (owner && repo) {
+          const gitea = new GiteaClient(giteaUrl, process.env.GITEA_TOKEN);
+          await gitea.createRelease(
+            owner,
+            repo,
+            tagName,
+            `Release ${tagName}`,
+            changelogEntry
+          );
+        } else {
+          console.warn('⚠️  Skipping Gitea release: REPO_OWNER and REPO_NAME not set');
         }
       }
 
@@ -103,7 +104,6 @@ program
       }
 
       console.log('\n🎉 Release complete!');
-      console.log(`📤 Don't forget to push: git push origin ${branchName} --tags`);
 
     } catch (error) {
       console.error('❌ Error:', error.message);

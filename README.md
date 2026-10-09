@@ -26,12 +26,13 @@ npm install
 # preview only — no files changed, no commit, no tag
 node index.js release --dry-run
 
-# real run: bumps, commits, tags locally
+# real run: bumps, commits, tags, and pushes to origin
 node index.js release
-
-# then push
-git push origin HEAD --tags
 ```
+
+The tool pushes `HEAD` + tags itself via `git push origin HEAD --follow-tags`,
+using whatever credentials your `origin` remote already has (your own locally,
+the token-authenticated clone URL in CI).
 
 Flags:
 
@@ -117,7 +118,6 @@ jobs:
           JIRA_URL: ${{ secrets.JIRA_URL }}
           JIRA_EMAIL: ${{ secrets.JIRA_EMAIL }}
           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
-      - run: git push origin HEAD --tags
 ```
 
 > The commit is made with `[skip ci]` in the message so the release commit
