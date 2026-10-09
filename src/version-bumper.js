@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { execSync } = require('child_process');
 
 /**
  * Reads the current version from package.json
@@ -10,6 +11,21 @@ function getCurrentVersion(packageJsonPath = 'package.json') {
   const fullPath = path.resolve(packageJsonPath);
   const pkg = JSON.parse(fs.readFileSync(fullPath, 'utf-8'));
   return pkg.version;
+}
+
+/**
+ * Reads the current version from the latest git tag (e.g. "v1.2.3" → "1.2.3").
+ * For projects without a package.json. Defaults to "0.0.0" when no tags exist.
+ * @returns {string}
+ */
+function getVersionFromGitTag() {
+  try {
+    const tag = execSync('git describe --tags --abbrev=0', { stdio: ['pipe', 'pipe', 'ignore'] })
+      .toString().trim();
+    return tag.replace(/^v/, '');
+  } catch {
+    return '0.0.0';
+  }
 }
 
 /**
@@ -56,4 +72,4 @@ function updatePackageJson(newVersion, packageJsonPath = 'package.json') {
   }
 }
 
-module.exports = { getCurrentVersion, bumpVersion, updatePackageJson };
+module.exports = { getCurrentVersion, getVersionFromGitTag, bumpVersion, updatePackageJson };

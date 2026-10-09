@@ -39,6 +39,9 @@ Flags:
 - `--dry-run` — show what would happen, change nothing
 - `--no-tag` — bump + commit, skip the git tag
 - `--no-release` — skip the Gitea release (still tags)
+- `--no-package` — don't read/write `package.json`; the current version comes
+  from the latest git tag. Use this for non-Node projects (e.g. C#) — you still
+  get the git tag, Gitea release, and `CHANGELOG.md`.
 
 ## Environment variables
 

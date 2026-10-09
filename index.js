@@ -2,7 +2,7 @@
 
 const { program } = require('commander');
 const { parseBranchName, extractJiraTicket } = require('./src/branch-parser');
-const { getCurrentVersion, bumpVersion, updatePackageJson } = require('./src/version-bumper');
+const { getCurrentVersion, getVersionFromGitTag, bumpVersion, updatePackageJson } = require('./src/version-bumper');
 const { GiteaClient } = require('./src/gitea-client');
 const { jiraFromEnv } = require('./src/jira-client');
 const { generateChangelogEntry, prependToChangelog } = require('./src/changelog-generator');
@@ -20,6 +20,7 @@ program
   .option('--dry-run', 'Show what would happen without making changes')
   .option('--no-tag', 'Skip creating git tag')
   .option('--no-release', 'Skip creating Gitea release')
+  .option('--no-package', 'Skip reading/writing package.json (version comes from the latest git tag)')
   .action(async (options) => {
     try {
       // 1. Get current branch name
@@ -39,8 +40,11 @@ program
         console.log(`🎫 Jira ticket: ${jiraTicket}`);
       }
 
-      // 4. Get current version and calculate new version
-      const currentVersion = getCurrentVersion();
+      // 4. Get current version and calculate new version. Without a package.json
+      // (e.g. a C# project) the version is tracked by git tags instead.
+      const currentVersion = options.package === false
+        ? getVersionFromGitTag()
+        : getCurrentVersion();
       const newVersion = bumpVersion(currentVersion, bumpType);
       console.log(`📦 Version bump: ${currentVersion} → ${newVersion}`);
 
@@ -49,9 +53,11 @@ program
         return;
       }
 
-      // 5. Update package.json
-      updatePackageJson(newVersion);
-      console.log(`✅ Updated package.json to ${newVersion}`);
+      // 5. Update package.json (unless --no-package)
+      if (options.package !== false) {
+        updatePackageJson(newVersion);
+        console.log(`✅ Updated package.json to ${newVersion}`);
+      }
 
       // 6. Generate and update changelog (commits since last tag, for LLM summary)
       let commits = '';
@@ -72,8 +78,12 @@ program
       const gitName = process.env.GIT_AUTHOR_NAME || 'branch-release';
       const gitEmail = process.env.GIT_AUTHOR_EMAIL || 'branch-release@users.noreply.github.com';
       const gitId = `-c user.name="${gitName}" -c user.email="${gitEmail}"`;
-      const lockFile = fs.existsSync('package-lock.json') ? ' package-lock.json' : '';
-      execSync(`git add package.json${lockFile} CHANGELOG.md`);
+      const files = ['CHANGELOG.md'];
+      if (options.package !== false) {
+        files.unshift('package.json');
+        if (fs.existsSync('package-lock.json')) files.push('package-lock.json');
+      }
+      execSync(`git add ${files.join(' ')}`);
       execSync(`git ${gitId} commit -m "chore(release): v${newVersion} [skip ci]"`);
       console.log('✅ Committed version bump');
 
