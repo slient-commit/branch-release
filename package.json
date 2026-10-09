@@ -1,0 +1,25 @@
+{
+  "name": "branch-release",
+  "version": "1.0.0",
+  "description": "Semantic versioning based on branch naming conventions",
+  "main": "index.js",
+  "bin": {
+    "branch-release": "./index.js"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/slient-commit/branch-release.git"
+  },
+  "keywords": ["release", "versioning", "ci", "gitea"],
+  "author": "MOURCHID Mohamed Kamal",
+  "dependencies": {
+    "commander": "^11.1.0"
+  },
+  "bugs": {
+    "url": "https://github.com/slient-commit/branch-release/issues"
+  },
+  "homepage": "https://github.com/slient-commit/branch-release#readme"
+}
