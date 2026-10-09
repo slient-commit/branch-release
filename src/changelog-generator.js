@@ -21,9 +21,14 @@ async function generateChangelogEntry(version, branchName, jiraTicket, commits) 
   }
 
   if (!body) {
-    body = jiraTicket
-      ? `- ${jiraTicket}: Changes from ${branchName}`
-      : `- Changes from ${branchName}`;
+    // No LLM configured: list the commit subjects we collected.
+    if (commits) {
+      body = commits.split('\n').map((c) => `- ${c}`).join('\n');
+    } else {
+      body = jiraTicket
+        ? `- ${jiraTicket}: Changes from ${branchName}`
+        : `- Changes from ${branchName}`;
+    }
   }
 
   return `${header}${body}\n`;
@@ -39,18 +44,16 @@ function prependToChangelog(newEntry, changelogPath = 'CHANGELOG.md') {
   const path = require('path');
   const fullPath = path.resolve(changelogPath);
   
-  let existing = '';
-  if (fs.existsSync(fullPath)) {
-    existing = fs.readFileSync(fullPath, 'utf-8');
-  } else {
-    existing = '# Changelog\n\nAll notable changes to this project will be documented in this file.\n\n';
-  }
-  
-  const updated = existing.replace(
-    /(# Changelog.*?\n\n)/,
-    `$1${newEntry}\n`
-  );
-  
+  const header = '# Changelog\n\nAll notable changes to this project will be documented in this file.\n\n';
+  const existing = fs.existsSync(fullPath) ? fs.readFileSync(fullPath, 'utf-8') : header;
+
+  // Insert the new entry above the first existing version entry; if none yet,
+  // append it after the header/intro so the intro stays on top.
+  const idx = existing.indexOf('\n## ');
+  const updated = idx === -1
+    ? `${existing.trimEnd()}\n\n${newEntry}\n`
+    : `${existing.slice(0, idx + 1)}${newEntry}\n${existing.slice(idx + 1)}`;
+
   fs.writeFileSync(fullPath, updated, 'utf-8');
 }
 

@@ -43,6 +43,17 @@ function updatePackageJson(newVersion, packageJsonPath = 'package.json') {
   const pkg = JSON.parse(fs.readFileSync(fullPath, 'utf-8'));
   pkg.version = newVersion;
   fs.writeFileSync(fullPath, JSON.stringify(pkg, null, 2) + '\n', 'utf-8');
+
+  // Keep package-lock.json in sync (npm stores the version in two places).
+  const lockPath = path.join(path.dirname(fullPath), 'package-lock.json');
+  if (fs.existsSync(lockPath)) {
+    const lock = JSON.parse(fs.readFileSync(lockPath, 'utf-8'));
+    lock.version = newVersion;
+    if (lock.packages && lock.packages['']) {
+      lock.packages[''].version = newVersion;
+    }
+    fs.writeFileSync(lockPath, JSON.stringify(lock, null, 2) + '\n', 'utf-8');
+  }
 }
 
 module.exports = { getCurrentVersion, bumpVersion, updatePackageJson };

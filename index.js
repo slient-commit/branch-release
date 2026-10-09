@@ -7,6 +7,7 @@ const { GiteaClient } = require('./src/gitea-client');
 const { jiraFromEnv } = require('./src/jira-client');
 const { generateChangelogEntry, prependToChangelog } = require('./src/changelog-generator');
 const { execSync } = require('child_process');
+const fs = require('fs');
 
 program
   .name('branch-release')
@@ -71,7 +72,8 @@ program
       const gitName = process.env.GIT_AUTHOR_NAME || 'branch-release';
       const gitEmail = process.env.GIT_AUTHOR_EMAIL || 'branch-release@users.noreply.github.com';
       const gitId = `-c user.name="${gitName}" -c user.email="${gitEmail}"`;
-      execSync('git add package.json CHANGELOG.md');
+      const lockFile = fs.existsSync('package-lock.json') ? ' package-lock.json' : '';
+      execSync(`git add package.json${lockFile} CHANGELOG.md`);
       execSync(`git ${gitId} commit -m "chore(release): v${newVersion} [skip ci]"`);
       console.log('✅ Committed version bump');
 
