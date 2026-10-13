@@ -42,6 +42,10 @@ Flags:
 - `--no-package` — don't read/write `package.json`; the current version comes
   from the latest git tag. Use this for non-Node projects (e.g. C#) — you still
   get the git tag, Gitea release, and `CHANGELOG.md`.
+- `--version-file <path>` — read/write the version in an arbitrary file instead
+  of `package.json`. Auto-detects the version in MSBuild (`<Version>`/`<VersionPrefix>`),
+  JSON (`"version"`), or a plain version file, and rewrites only that spot. Example:
+  `node index.js release --version-file Directory.Build.props`.
 
 ## Environment variables
 

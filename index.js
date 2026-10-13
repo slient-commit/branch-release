@@ -5,6 +5,7 @@ const { parseBranchName, extractJiraTicket } = require('./src/branch-parser');
 const { getCurrentVersion, getVersionFromGitTag, bumpVersion, updatePackageJson } = require('./src/version-bumper');
 const { GiteaClient } = require('./src/gitea-client');
 const { jiraFromEnv } = require('./src/jira-client');
+const { getVersionFromFile, updateVersionFile } = require('./src/version-file');
 const { generateChangelogEntry, prependToChangelog } = require('./src/changelog-generator');
 const { execSync } = require('child_process');
 const fs = require('fs');
@@ -21,6 +22,7 @@ program
   .option('--no-tag', 'Skip creating git tag')
   .option('--no-release', 'Skip creating Gitea release')
   .option('--no-package', 'Skip reading/writing package.json (version comes from the latest git tag)')
+  .option('--version-file <path>', 'Read/write the version in this file (XML, JSON, or plain) instead of package.json')
   .action(async (options) => {
     try {
       // 1. Get current branch name
@@ -40,11 +42,17 @@ program
         console.log(`🎫 Jira ticket: ${jiraTicket}`);
       }
 
-      // 4. Get current version and calculate new version. Without a package.json
-      // (e.g. a C# project) the version is tracked by git tags instead.
-      const currentVersion = options.package === false
-        ? getVersionFromGitTag()
-        : getCurrentVersion();
+      // 4. Get current version and calculate new version. Source priority:
+      //    --version-file (any language) > --no-package (git tags) > package.json.
+      const versionFile = options.versionFile;
+      let currentVersion;
+      if (versionFile) {
+        currentVersion = getVersionFromFile(versionFile);
+      } else if (options.package === false) {
+        currentVersion = getVersionFromGitTag();
+      } else {
+        currentVersion = getCurrentVersion();
+      }
       const newVersion = bumpVersion(currentVersion, bumpType);
       console.log(`📦 Version bump: ${currentVersion} → ${newVersion}`);
 
@@ -53,8 +61,11 @@ program
         return;
       }
 
-      // 5. Update package.json (unless --no-package)
-      if (options.package !== false) {
+      // 5. Write the new version back to its source file
+      if (versionFile) {
+        updateVersionFile(versionFile, newVersion);
+        console.log(`✅ Updated ${versionFile} to ${newVersion}`);
+      } else if (options.package !== false) {
         updatePackageJson(newVersion);
         console.log(`✅ Updated package.json to ${newVersion}`);
       }
@@ -79,7 +90,9 @@ program
       const gitEmail = process.env.GIT_AUTHOR_EMAIL || 'branch-release@users.noreply.github.com';
       const gitId = `-c user.name="${gitName}" -c user.email="${gitEmail}"`;
       const files = ['CHANGELOG.md'];
-      if (options.package !== false) {
+      if (versionFile) {
+        files.unshift(`"${versionFile}"`);
+      } else if (options.package !== false) {
         files.unshift('package.json');
         if (fs.existsSync('package-lock.json')) files.push('package-lock.json');
       }
