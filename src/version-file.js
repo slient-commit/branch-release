@@ -11,6 +11,7 @@ const PATTERNS = [
   /(<Version>)(\d+\.\d+\.\d+)(<\/Version>)/i,             // .csproj / Directory.Build.props
   /(<VersionPrefix>)(\d+\.\d+\.\d+)(<\/VersionPrefix>)/i,
   /("version"\s*:\s*")(\d+\.\d+\.\d+)(")/i,               // JSON
+  /^(\s*version\s*=\s*["']?)(\d+\.\d+\.\d+)(["']?)/im,     // Python: pyproject.toml / setup.cfg / setup.py
   /^(\s*)(\d+\.\d+\.\d+)(\s*)$/,                           // bare version file (VERSION, .version)
 ];
 

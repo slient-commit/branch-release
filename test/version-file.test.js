@@ -38,6 +38,15 @@ test('handles JSON and bare version files', () => {
   assert.equal(getVersionFromFile(tmp('VERSION', '2.0.1\n')), '2.0.1');
 });
 
+test('handles Python version files', () => {
+  assert.equal(getVersionFromFile(tmp('pyproject.toml', '[project]\nname = "x"\nversion = "1.4.2"\n')), '1.4.2');
+  assert.equal(getVersionFromFile(tmp('setup.cfg', '[metadata]\nversion = 2.0.1\n')), '2.0.1');
+  const setup = tmp('setup.py', 'setup(\n    name="x",\n    version="3.1.0",\n)\n');
+  assert.equal(getVersionFromFile(setup), '3.1.0');
+  updateVersionFile(setup, '3.2.0');
+  assert.match(fs.readFileSync(setup, 'utf-8'), /version="3\.2\.0"/);
+});
+
 test('throws when no version is present', () => {
   assert.throws(() => getVersionFromFile(tmp('none.txt', 'no version here')), /No version/);
 });
