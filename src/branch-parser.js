@@ -49,4 +49,15 @@ function extractJiraTicket(branchName) {
   return match ? match[1] : null;
 }
 
-module.exports = { parseBranchName, extractJiraTicket };
+/**
+ * Extracts all unique Jira tickets from text (e.g. commit messages), in order
+ * of first appearance.
+ * @param {string} text
+ * @returns {string[]} - e.g., ["OMNISSIUM-123", "OMNISSIUM-456"]
+ */
+function extractJiraTickets(text) {
+  const matches = (text || '').match(/[A-Z]+-[0-9]+/g) || [];
+  return [...new Set(matches)];
+}
+
+module.exports = { parseBranchName, extractJiraTicket, extractJiraTickets };

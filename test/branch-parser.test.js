@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { parseBranchName, extractJiraTicket } = require('../src/branch-parser');
+const { parseBranchName, extractJiraTicket, extractJiraTickets } = require('../src/branch-parser');
 
 test('parseBranchName maps prefixes to bump types', () => {
   assert.equal(parseBranchName('breaking/foo'), 'major');
@@ -26,4 +26,11 @@ test('extractJiraTicket pulls the key or returns null', () => {
   assert.equal(extractJiraTicket('feature/OMNISSIUM-123-add-export'), 'OMNISSIUM-123');
   assert.equal(extractJiraTicket('fix/ABC-9'), 'ABC-9');
   assert.equal(extractJiraTicket('feature/no-ticket-here'), null);
+});
+
+test('extractJiraTickets returns unique keys in first-seen order', () => {
+  const commits = 'OMNISSIUM-123: add x\nfix OMNISSIUM-456\nmore OMNISSIUM-123 work';
+  assert.deepEqual(extractJiraTickets(commits), ['OMNISSIUM-123', 'OMNISSIUM-456']);
+  assert.deepEqual(extractJiraTickets('no tickets'), []);
+  assert.deepEqual(extractJiraTickets(''), []);
 });

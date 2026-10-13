@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 const { program } = require('commander');
-const { parseBranchName, extractJiraTicket } = require('./src/branch-parser');
+const { parseBranchName, extractJiraTicket, extractJiraTickets } = require('./src/branch-parser');
 const { getCurrentVersion, getVersionFromGitTag, bumpVersion, updatePackageJson } = require('./src/version-bumper');
 const { GiteaClient } = require('./src/gitea-client');
 const { jiraFromEnv } = require('./src/jira-client');
@@ -121,12 +121,17 @@ program
 
         if (owner && repo) {
           const gitea = new GiteaClient(giteaUrl, process.env.GITEA_TOKEN);
+          // Release body = changelog + unique Jira tickets from commit messages.
+          const tickets = extractJiraTickets(commits);
+          const releaseBody = tickets.length
+            ? `${changelogEntry}\n### Jira tickets\n\n${tickets.map((t) => `- ${t}`).join('\n')}\n`
+            : changelogEntry;
           await gitea.createRelease(
             owner,
             repo,
             tagName,
             `Release ${tagName}`,
-            changelogEntry
+            releaseBody
           );
         } else {
           console.warn('⚠️  Skipping Gitea release: REPO_OWNER and REPO_NAME not set');
