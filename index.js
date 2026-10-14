@@ -6,6 +6,7 @@ const { getCurrentVersion, getVersionFromGitTag, bumpVersion, updatePackageJson 
 const { GiteaClient } = require('./src/gitea-client');
 const { jiraFromEnv } = require('./src/jira-client');
 const { getVersionFromFile, updateVersionFile } = require('./src/version-file');
+const { computeVersionFromCommits } = require('./src/conventional');
 const { generateChangelogEntry, prependToChangelog } = require('./src/changelog-generator');
 const { execSync } = require('child_process');
 const fs = require('fs');
@@ -23,6 +24,7 @@ program
   .option('--no-release', 'Skip creating Gitea release')
   .option('--no-package', 'Skip reading/writing package.json (version comes from the latest git tag)')
   .option('--version-file <path>', 'Read/write the version in this file (XML, JSON, or plain) instead of package.json')
+  .option('--conventional', 'Compute the version from Conventional Commits since the last tag (cumulative, timeline order) instead of the branch name')
   .action(async (options) => {
     try {
       // 1. Get current branch name
@@ -32,29 +34,53 @@ program
       
       console.log(`📍 Current branch: ${branchName}`);
 
-      // 2. Parse branch name to determine bump type
-      const bumpType = parseBranchName(branchName);
-      console.log(`🔍 Detected bump type: ${bumpType}`);
+      // 2. Commit range since the last tag (used for version calc + changelog).
+      let range = '';
+      try {
+        // stderr ignored: git prints a fatal when no tags exist yet
+        const lastTag = execSync('git describe --tags --abbrev=0', { stdio: ['pipe', 'pipe', 'ignore'] }).toString().trim();
+        range = `${lastTag}..HEAD`;
+      } catch {
+        range = ''; // no tags yet — consider all commits
+      }
 
-      // 3. Extract Jira ticket (optional)
+      // 3. Extract Jira ticket from the branch (optional)
       const jiraTicket = extractJiraTicket(branchName);
       if (jiraTicket) {
         console.log(`🎫 Jira ticket: ${jiraTicket}`);
       }
 
-      // 4. Get current version and calculate new version. Source priority:
-      //    --version-file (any language) > --no-package (git tags) > package.json.
+      // 4. Determine current version and compute the new one.
+      //    --conventional: base = last tag, apply commit bumps cumulatively.
+      //    Otherwise: base source is --version-file > --no-package (tags) > package.json,
+      //    and the branch name decides the single bump.
       const versionFile = options.versionFile;
       let currentVersion;
-      if (versionFile) {
-        currentVersion = getVersionFromFile(versionFile);
-      } else if (options.package === false) {
+      let newVersion;
+      if (options.conventional) {
         currentVersion = getVersionFromGitTag();
+        // Full messages (subject + body, for BREAKING CHANGE), oldest→newest.
+        const raw = execSync(`git log ${range} --reverse --pretty=format:%B%x00`).toString();
+        const messages = raw.split('\0').map((m) => m.trim()).filter(Boolean);
+        newVersion = computeVersionFromCommits(currentVersion, messages);
       } else {
-        currentVersion = getCurrentVersion();
+        const bumpType = parseBranchName(branchName);
+        console.log(`🔍 Detected bump type: ${bumpType}`);
+        if (versionFile) {
+          currentVersion = getVersionFromFile(versionFile);
+        } else if (options.package === false) {
+          currentVersion = getVersionFromGitTag();
+        } else {
+          currentVersion = getCurrentVersion();
+        }
+        newVersion = bumpVersion(currentVersion, bumpType);
       }
-      const newVersion = bumpVersion(currentVersion, bumpType);
       console.log(`📦 Version bump: ${currentVersion} → ${newVersion}`);
+
+      if (newVersion === currentVersion) {
+        console.log('🏁 No version-affecting commits since the last tag — nothing to release.');
+        return;
+      }
 
       if (options.dryRun) {
         console.log('\n🏁 Dry run complete. No changes made.');
@@ -70,16 +96,8 @@ program
         console.log(`✅ Updated package.json to ${newVersion}`);
       }
 
-      // 6. Generate and update changelog (commits since last tag, for LLM summary)
-      let commits = '';
-      try {
-        // stderr ignored: git prints a fatal when no tags exist yet (handled below)
-        const lastTag = execSync('git describe --tags --abbrev=0', { stdio: ['pipe', 'pipe', 'ignore'] }).toString().trim();
-        commits = execSync(`git log ${lastTag}..HEAD --pretty=format:%s`).toString().trim();
-      } catch {
-        // No tags yet — summarize all commits
-        commits = execSync('git log --pretty=format:%s').toString().trim();
-      }
+      // 6. Generate and update changelog (commit subjects since last tag).
+      const commits = execSync(`git log ${range} --pretty=format:%s`).toString().trim();
       const changelogEntry = await generateChangelogEntry(newVersion, branchName, jiraTicket, commits);
       prependToChangelog(changelogEntry);
       console.log('✅ Updated CHANGELOG.md');

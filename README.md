@@ -47,6 +47,12 @@ Flags:
   JSON (`"version"`), Python (`version = "..."` in pyproject.toml/setup.cfg/setup.py),
   or a plain version file, and rewrites only that spot. Example:
   `node index.js release --version-file Directory.Build.props`.
+- `--conventional` — compute the version from [Conventional Commits](https://www.conventionalcommits.org)
+  since the last tag instead of the branch name. Starts from the last tag's version
+  and walks commits oldest→newest, applying each cumulatively: `feat:` → minor
+  (resets patch), `fix:` → patch, `feat!:`/`fix!:`/`BREAKING CHANGE` → major (resets
+  minor+patch). Other types (`chore`, `docs`, …) don't affect the version; if none
+  of the commits bump anything, the run exits without releasing.
 
 ## Environment variables
 
